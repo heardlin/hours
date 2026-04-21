@@ -37,6 +37,14 @@ const state = {
   cols: 0, rows: 0,
   grid: null,              // Uint8Array, 0 = empty, 1..N = sand shades
 
+  // Bottom-left-anchored buffer that spans the union of every viewport the
+  // window has ever been at. The visible grid is a window into the bottom-left
+  // corner of this buffer. Lets us shrink the window, then grow it again, and
+  // still get back sand that was off-screen in between.
+  persistentGrid: null,
+  persistentCols: 0,
+  persistentRows: 0,
+
   // terrain cached profile (top surface row per column)
   terrain: null,           // Float32Array length cols; settled = top row of sand (lower = higher dune)
 
@@ -55,25 +63,101 @@ const ctx = canvas.getContext("2d", { willReadFrequently: false });
 let imageData = null;
 let buf32 = null;
 
-function resize() {
-  const dpr = 1; // we render at grid resolution, scale via CSS
+// preserveGrid=true syncs sand through a persistent canonical buffer so the
+// dunes stay locked to the floor across window resize / fullscreen toggles
+// AND survive a shrink-then-grow cycle (off-screen sand is preserved rather
+// than cropped away). preserveGrid=false is used when grain size changes —
+// the old cell pitch no longer matches the new one, so we wipe everything.
+function resize(preserveGrid = true) {
   const w = Math.floor(window.innerWidth);
   const h = Math.floor(window.innerHeight);
   const g = state.grainSize;
-  state.cols = Math.floor(w / g);
-  state.rows = Math.floor(h / g);
-  canvas.width = state.cols;
-  canvas.height = state.rows;
+  const newCols = Math.floor(w / g);
+  const newRows = Math.floor(h / g);
+
+  if (!preserveGrid) {
+    state.persistentGrid = null;
+    state.persistentCols = 0;
+    state.persistentRows = 0;
+    state.sandUsed = 0;
+  }
+
+  // 1) Flush the live viewport grid back into persistent (bottom-left anchor).
+  //    Persistent's bottom row == viewport's bottom row.
+  if (state.grid && state.persistentGrid && state.cols && state.rows) {
+    const pCols = state.persistentCols;
+    const dRow = state.persistentRows - state.rows;
+    for (let y = 0; y < state.rows; y++) {
+      const srcOff = y * state.cols;
+      const dstOff = (y + dRow) * pCols;
+      for (let x = 0; x < state.cols; x++) {
+        state.persistentGrid[dstOff + x] = state.grid[srcOff + x];
+      }
+    }
+  }
+
+  // 2) Grow (or create) persistent so it covers the new viewport. Persistent
+  //    only ever grows — sand that went off-screen when the window shrank is
+  //    still there when the user expands again.
+  const needCols = Math.max(newCols, state.persistentCols);
+  const needRows = Math.max(newRows, state.persistentRows);
+  if (!state.persistentGrid) {
+    state.persistentGrid = new Uint8Array(needCols * needRows);
+    state.persistentCols = needCols;
+    state.persistentRows = needRows;
+  } else if (needCols > state.persistentCols || needRows > state.persistentRows) {
+    const grown = new Uint8Array(needCols * needRows);
+    const oldCols = state.persistentCols;
+    const dRow = needRows - state.persistentRows;   // bottom-anchor growth
+    for (let y = 0; y < state.persistentRows; y++) {
+      const srcOff = y * oldCols;
+      const dstOff = (y + dRow) * needCols;
+      for (let x = 0; x < oldCols; x++) {
+        grown[dstOff + x] = state.persistentGrid[srcOff + x];
+      }
+    }
+    state.persistentGrid = grown;
+    state.persistentCols = needCols;
+    state.persistentRows = needRows;
+  }
+
+  // 3) Build the new viewport grid by reading persistent's bottom-left window.
+  const newGrid = new Uint8Array(newCols * newRows);
+  {
+    const pCols = state.persistentCols;
+    const dRow = state.persistentRows - newRows;
+    for (let y = 0; y < newRows; y++) {
+      const srcOff = (y + dRow) * pCols;
+      const dstOff = y * newCols;
+      for (let x = 0; x < newCols; x++) {
+        newGrid[dstOff + x] = state.persistentGrid[srcOff + x];
+      }
+    }
+  }
+
+  state.cols = newCols;
+  state.rows = newRows;
+  state.grid = newGrid;
+  canvas.width = newCols;
+  canvas.height = newRows;
   canvas.style.width = w + "px";
   canvas.style.height = h + "px";
-  state.grid = new Uint8Array(state.cols * state.rows);
-  state.terrain = new Float32Array(state.cols).fill(state.rows);
-  imageData = ctx.createImageData(state.cols, state.rows);
+  state.terrain = new Float32Array(newCols).fill(newRows);
+  imageData = ctx.createImageData(newCols, newRows);
   buf32 = new Uint32Array(imageData.data.buffer);
-  state.sandUsed = 0;
+
+  // Keep the traveler SVG coordinate space matched to the viewport, otherwise
+  // the figure drifts off or gets cropped when the window changes size.
+  const travelerLayerEl = document.getElementById("travelerLayer");
+  if (travelerLayerEl) {
+    travelerLayerEl.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    travelerLayerEl.setAttribute("width", w);
+    travelerLayerEl.setAttribute("height", h);
+  }
+
   updateGauge();
 }
-window.addEventListener("resize", resize);
+window.addEventListener("resize", () => resize(true));
 
 /* ------- sand palette (warm) ------- */
 // shade index 1..7
@@ -223,9 +307,7 @@ let emberEl = null;
 
 function ensureTraveler() {
   if (travelerEl) return;
-  travelerLayer.setAttribute("viewBox", `0 0 ${window.innerWidth} ${window.innerHeight}`);
-  travelerLayer.setAttribute("width", window.innerWidth);
-  travelerLayer.setAttribute("height", window.innerHeight);
+  // Layer dimensions are kept in sync by resize() — no one-shot setup here.
 
   // Journey-inspired cloaked wanderer: tall, narrow silhouette, small
   // rounded hood, cloak that tapers toward the feet, a long scarf that
@@ -742,6 +824,7 @@ function clearSand() {
   state.grid.fill(0);
   state.sandUsed = 0;
   state.terrain.fill(state.rows);
+  if (state.persistentGrid) state.persistentGrid.fill(0);
   updateGauge();
 }
 
@@ -1018,7 +1101,7 @@ for (const [ctl, val, key, fmt] of tkPairs) {
     state[key] = n;
     document.getElementById(val).textContent = fmt(n);
     syncRangePct(e.target);
-    if (key === "grainSize") resize();
+    if (key === "grainSize") resize(false);
     if (key === "sandQuota") updateGauge();
     if (key === "focusMin" && state.phase === "idle") setClock(state.focusMin * 60 * 1000, false);
     if (key === "bgmVolume") applyBgmVolume();
