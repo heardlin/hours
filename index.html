@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>hours</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="stage">
+  <div class="scene">
+    <svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stop-color="#FCE4B1"/>
+          <stop offset="45%" stop-color="#F6CE8F"/>
+          <stop offset="80%" stop-color="#F0BD78"/>
+          <stop offset="100%" stop-color="#EDB46A"/>
+        </linearGradient>
+        <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="#FFFBEC" stop-opacity="1"/>
+          <stop offset="25%"  stop-color="#FFF3CE" stop-opacity="0.75"/>
+          <stop offset="60%"  stop-color="#FCE0A0" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="#F4C98A" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="rayFade" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"   stop-color="#FFFDF3" stop-opacity="0.62"/>
+          <stop offset="50%"  stop-color="#FFF1C4" stop-opacity="0.14"/>
+          <stop offset="100%" stop-color="#FFF1C4" stop-opacity="0"/>
+        </linearGradient>
+        <!-- Dedicated blur filter for sun rays — softens the hard triangle
+             edges so they read as light shafts in haze, not geometric wedges. -->
+        <filter id="rayBlur" x="-15%" y="-15%" width="130%" height="130%">
+          <feGaussianBlur stdDeviation="5"/>
+        </filter>
+        <linearGradient id="duneFar" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#F3C98D"/>
+          <stop offset="100%" stop-color="#E8B476"/>
+        </linearGradient>
+        <linearGradient id="duneMid" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#EFBE7B"/>
+          <stop offset="100%" stop-color="#DFA261"/>
+        </linearGradient>
+        <linearGradient id="duneNear" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#E6AF6A"/>
+          <stop offset="100%" stop-color="#C98849"/>
+        </linearGradient>
+        <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+          <feGaussianBlur stdDeviation="4"/>
+        </filter>
+        <filter id="softer" x="-10%" y="-10%" width="120%" height="120%">
+          <feGaussianBlur stdDeviation="10"/>
+        </filter>
+        <filter id="mountainBlur" x="-10%" y="-10%" width="120%" height="120%">
+          <feGaussianBlur stdDeviation="6"/>
+        </filter>
+      </defs>
+
+      <!-- sky -->
+      <rect width="1920" height="1080" fill="url(#sky)"/>
+
+      <!-- high sun glow, upper-right corner -->
+      <circle class="sun-glow" cx="1820" cy="120" r="520" fill="url(#sunGlow)"/>
+      <circle class="sun-glow" cx="1820" cy="120" r="18" fill="#FFFCEB" opacity="0.9"/>
+
+      <!-- distant mountain range: low, soft, far, single layer -->
+      <g filter="url(#mountainBlur)" opacity="0.55">
+        <path d="M 0 640
+                 C 180 620, 280 600, 420 615
+                 C 560 628, 660 600, 820 605
+                 C 980 612, 1080 640, 1240 630
+                 C 1400 618, 1520 650, 1680 642
+                 C 1820 635, 1880 655, 1920 650
+                 L 1920 780 L 0 780 Z"
+              fill="#D9A26B"/>
+      </g>
+      <!-- a slightly darker, further-back ridge peeking behind for depth -->
+      <g filter="url(#softer)" opacity="0.32">
+        <path d="M 0 660
+                 C 240 620, 460 680, 720 640
+                 C 980 600, 1180 680, 1440 650
+                 C 1640 630, 1800 670, 1920 660
+                 L 1920 780 L 0 780 Z"
+              fill="#B68556"/>
+      </g>
+
+      <!-- Tyndall rays — radiate FROM the sun's center (matches the sun's
+           cx/cy above) so the light beams visibly come from the source.
+           Mild blur + per-shaft opacity keeps them visible but atmospheric. -->
+      <g opacity="0.65" style="mix-blend-mode: screen;" filter="url(#rayBlur)">
+        <g transform="translate(1820 120) rotate(28)">
+          <polygon points="0,0 -60,1600  120,1600" fill="url(#rayFade)" opacity="0.55"/>
+          <polygon points="0,0  180,1600  340,1600" fill="url(#rayFade)" opacity="0.42"/>
+          <polygon points="0,0 -260,1600 -120,1600" fill="url(#rayFade)" opacity="0.38"/>
+          <polygon points="0,0  400,1600  560,1600" fill="url(#rayFade)" opacity="0.28"/>
+          <polygon points="0,0 -460,1600 -320,1600" fill="url(#rayFade)" opacity="0.22"/>
+        </g>
+      </g>
+
+      <!-- rolling dunes — three layers, pronounced -->
+      <g filter="url(#softer)" opacity="0.95">
+        <path d="M 0 760 C 260 640, 480 860, 760 740 C 1040 620, 1240 860, 1520 760 C 1720 700, 1840 810, 1920 780 L 1920 1080 L 0 1080 Z" fill="url(#duneFar)"/>
+      </g>
+
+      <!-- Tall slender stone gates in the distance (torii-inspired).
+           Bases fade into clouds via a gradient mask.
+           Each gate has carved glyphs that illuminate when its session completes. -->
+      <defs>
+        <linearGradient id="totemStone" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stop-color="#B88655"/>
+          <stop offset="45%" stop-color="#9A6B3E"/>
+          <stop offset="100%" stop-color="#5A3A20"/>
+        </linearGradient>
+        <radialGradient id="gateHalo" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"  stop-color="#FFE4A0" stop-opacity="0.85"/>
+          <stop offset="45%" stop-color="#FFC875" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#FFB560" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="gateHaze" x="-15%" y="-15%" width="130%" height="130%">
+          <feGaussianBlur stdDeviation="1.8"/>
+        </filter>
+        <!-- Mask: white (visible) at top, fading to black (invisible) at ground -->
+        <linearGradient id="gateFadeGradient" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="#FFF" stop-opacity="1"/>
+          <stop offset="60%"  stop-color="#FFF" stop-opacity="1"/>
+          <stop offset="82%"  stop-color="#FFF" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="#FFF" stop-opacity="0"/>
+        </linearGradient>
+        <mask id="gateCloudFade" maskUnits="userSpaceOnUse" x="-200" y="-400" width="400" height="500">
+          <rect x="-200" y="-400" width="400" height="500" fill="url(#gateFadeGradient)"/>
+        </mask>
+      </defs>
+
+      <!-- Drifted sand mounds hugging the bases of the gates — covers the
+           hard bottom edges of the pillars so they don't read as floating blocks. -->
+      <g opacity="0.9">
+        <!-- Totem 0 at (380, 685): base ~y=685, mound wraps around it -->
+        <ellipse cx="380"  cy="687" rx="240" ry="30" fill="#E8BF82" filter="url(#softer)"/>
+        <ellipse cx="380"  cy="695" rx="200" ry="18" fill="#D9A86A" filter="url(#softer)" opacity="0.7"/>
+        <!-- Totem 1 at (760, 670) -->
+        <ellipse cx="760"  cy="675" rx="285" ry="34" fill="#E8BF82" filter="url(#softer)"/>
+        <ellipse cx="760"  cy="685" rx="235" ry="20" fill="#D9A86A" filter="url(#softer)" opacity="0.7"/>
+        <!-- Totem 2 at (1200, 680) -->
+        <ellipse cx="1200" cy="685" rx="260" ry="32" fill="#E8BF82" filter="url(#softer)"/>
+        <ellipse cx="1200" cy="694" rx="215" ry="19" fill="#D9A86A" filter="url(#softer)" opacity="0.7"/>
+        <!-- Totem 3 at (1580, 690) -->
+        <ellipse cx="1580" cy="693" rx="215" ry="26" fill="#E8BF82" filter="url(#softer)"/>
+        <ellipse cx="1580" cy="701" rx="175" ry="16" fill="#D9A86A" filter="url(#softer)" opacity="0.7"/>
+      </g>
+
+      <g id="totems" filter="url(#gateHaze)" opacity="0.72">
+    <g class="totem" data-idx="0" transform="translate(380 685) scale(1.25)">
+      <ellipse class="gate-halo" cx="0" cy="-71.5" rx="100" ry="97.5" fill="url(#gateHalo)"/>
+      <ellipse class="gate-halo-inner" cx="0" cy="-71.5" rx="50" ry="71.5" fill="url(#gateHaloInner)"/>
+
+      <g>
+        <!-- left pillar, trapezoidal (wider base) -->
+        <path d="M -46 0 L -20 0 L -22 -130 L -44 -130 Z" fill="url(#totemStone)"/>
+        <!-- right pillar -->
+        <path d="M 20 0 L 46 0 L 44 -130 L 22 -130 Z" fill="url(#totemStone)"/>
+        <!-- secondary crossbeam -->
+        <rect x="-22" y="-45" width="44" height="10" fill="#6E4525" opacity="0.75"/>
+        <!-- massive lintel -->
+        <path d="M -58 -130 L 58 -130 L 52 -148 L -52 -148 Z" fill="url(#totemStone)"/>
+        <rect x="-52" y="-151" width="104" height="3" fill="#6E4525"/>
+        <rect x="-22" y="-130" width="44" height="4" fill="#2A1408" opacity="0.35"/>
+
+        <g fill="#3A2512">
+          <g class="gate-glyph"><rect x="-30.5" y="-143.5" width="9" height="1.2600000000000002"/><rect x="-30.5" y="-135.58" width="9" height="1.2600000000000002"/><rect x="-30.5" y="-143.5" width="1.2600000000000002" height="9"/><rect x="-22.58" y="-143.5" width="1.2600000000000002" height="9"/><rect x="-27.26" y="-140.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="-17.5" y="-143.5" width="9" height="1.6199999999999999"/><rect x="-17.5" y="-139.72" width="9" height="1.6199999999999999"/><rect x="-17.5" y="-135.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="-4.5" y="-143.5" width="9" height="1.44"/><rect x="-4.5" y="-135.85" width="9" height="1.44"/><rect x="-4.5" y="-143.5" width="1.44" height="9"/><rect x="3.15" y="-143.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="8.5" y="-143.5" width="9" height="1.8"/><rect x="12.1" y="-143.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="21.5" y="-143.5" width="9" height="1.2600000000000002"/><rect x="21.5" y="-135.58" width="9" height="1.2600000000000002"/><rect x="21.5" y="-143.5" width="1.2600000000000002" height="9"/><rect x="29.42" y="-143.5" width="1.2600000000000002" height="9"/><rect x="24.74" y="-140.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="-37.5" y="-20.5" width="9" height="1.6199999999999999"/><rect x="-37.5" y="-16.72" width="9" height="1.6199999999999999"/><rect x="-37.5" y="-12.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="-37.5" y="-42.5" width="9" height="1.44"/><rect x="-37.5" y="-34.85" width="9" height="1.44"/><rect x="-37.5" y="-42.5" width="1.44" height="9"/><rect x="-29.85" y="-42.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="-37.5" y="-64.5" width="9" height="1.8"/><rect x="-33.9" y="-64.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="-37.5" y="-86.5" width="9" height="1.2600000000000002"/><rect x="-37.5" y="-78.58" width="9" height="1.2600000000000002"/><rect x="-37.5" y="-86.5" width="1.2600000000000002" height="9"/><rect x="-29.58" y="-86.5" width="1.2600000000000002" height="9"/><rect x="-34.26" y="-83.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="28.5" y="-20.5" width="9" height="1.6199999999999999"/><rect x="28.5" y="-16.72" width="9" height="1.6199999999999999"/><rect x="28.5" y="-12.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="28.5" y="-42.5" width="9" height="1.44"/><rect x="28.5" y="-34.85" width="9" height="1.44"/><rect x="28.5" y="-42.5" width="1.44" height="9"/><rect x="36.15" y="-42.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="28.5" y="-64.5" width="9" height="1.8"/><rect x="32.1" y="-64.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="28.5" y="-86.5" width="9" height="1.2600000000000002"/><rect x="28.5" y="-78.58" width="9" height="1.2600000000000002"/><rect x="28.5" y="-86.5" width="1.2600000000000002" height="9"/><rect x="36.42" y="-86.5" width="1.2600000000000002" height="9"/><rect x="31.74" y="-83.26" width="2.5200000000000005" height="2.5200000000000005"/></g>
+        </g>
+
+        <!-- glowing core at top -->
+        <circle class="gate-core" cx="0" cy="-139" r="2.5" fill="#3A2512"/>
+      </g>
+    </g>
+
+    <g class="totem" data-idx="1" transform="translate(760 670) scale(1.4)">
+      <ellipse class="gate-halo" cx="0" cy="-71.5" rx="100" ry="97.5" fill="url(#gateHalo)"/>
+      <ellipse class="gate-halo-inner" cx="0" cy="-71.5" rx="50" ry="71.5" fill="url(#gateHaloInner)"/>
+
+      <g>
+        <!-- left pillar, trapezoidal (wider base) -->
+        <path d="M -46 0 L -20 0 L -22 -130 L -44 -130 Z" fill="url(#totemStone)"/>
+        <!-- right pillar -->
+        <path d="M 20 0 L 46 0 L 44 -130 L 22 -130 Z" fill="url(#totemStone)"/>
+        <!-- secondary crossbeam -->
+        <rect x="-22" y="-45" width="44" height="10" fill="#6E4525" opacity="0.75"/>
+        <!-- massive lintel -->
+        <path d="M -58 -130 L 58 -130 L 52 -148 L -52 -148 Z" fill="url(#totemStone)"/>
+        <rect x="-52" y="-151" width="104" height="3" fill="#6E4525"/>
+        <rect x="-22" y="-130" width="44" height="4" fill="#2A1408" opacity="0.35"/>
+
+        <g fill="#3A2512">
+          <g class="gate-glyph"><rect x="-30.5" y="-143.5" width="9" height="1.2600000000000002"/><rect x="-30.5" y="-135.58" width="9" height="1.2600000000000002"/><rect x="-30.5" y="-143.5" width="1.2600000000000002" height="9"/><rect x="-22.58" y="-143.5" width="1.2600000000000002" height="9"/><rect x="-27.26" y="-140.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="-17.5" y="-143.5" width="9" height="1.6199999999999999"/><rect x="-17.5" y="-139.72" width="9" height="1.6199999999999999"/><rect x="-17.5" y="-135.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="-4.5" y="-143.5" width="9" height="1.44"/><rect x="-4.5" y="-135.85" width="9" height="1.44"/><rect x="-4.5" y="-143.5" width="1.44" height="9"/><rect x="3.15" y="-143.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="8.5" y="-143.5" width="9" height="1.8"/><rect x="12.1" y="-143.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="21.5" y="-143.5" width="9" height="1.2600000000000002"/><rect x="21.5" y="-135.58" width="9" height="1.2600000000000002"/><rect x="21.5" y="-143.5" width="1.2600000000000002" height="9"/><rect x="29.42" y="-143.5" width="1.2600000000000002" height="9"/><rect x="24.74" y="-140.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="-37.5" y="-20.5" width="9" height="1.6199999999999999"/><rect x="-37.5" y="-16.72" width="9" height="1.6199999999999999"/><rect x="-37.5" y="-12.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="-37.5" y="-42.5" width="9" height="1.44"/><rect x="-37.5" y="-34.85" width="9" height="1.44"/><rect x="-37.5" y="-42.5" width="1.44" height="9"/><rect x="-29.85" y="-42.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="-37.5" y="-64.5" width="9" height="1.8"/><rect x="-33.9" y="-64.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="-37.5" y="-86.5" width="9" height="1.2600000000000002"/><rect x="-37.5" y="-78.58" width="9" height="1.2600000000000002"/><rect x="-37.5" y="-86.5" width="1.2600000000000002" height="9"/><rect x="-29.58" y="-86.5" width="1.2600000000000002" height="9"/><rect x="-34.26" y="-83.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="28.5" y="-20.5" width="9" height="1.6199999999999999"/><rect x="28.5" y="-16.72" width="9" height="1.6199999999999999"/><rect x="28.5" y="-12.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="28.5" y="-42.5" width="9" height="1.44"/><rect x="28.5" y="-34.85" width="9" height="1.44"/><rect x="28.5" y="-42.5" width="1.44" height="9"/><rect x="36.15" y="-42.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="28.5" y="-64.5" width="9" height="1.8"/><rect x="32.1" y="-64.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="28.5" y="-86.5" width="9" height="1.2600000000000002"/><rect x="28.5" y="-78.58" width="9" height="1.2600000000000002"/><rect x="28.5" y="-86.5" width="1.2600000000000002" height="9"/><rect x="36.42" y="-86.5" width="1.2600000000000002" height="9"/><rect x="31.74" y="-83.26" width="2.5200000000000005" height="2.5200000000000005"/></g>
+        </g>
+
+        <!-- glowing core at top -->
+        <circle class="gate-core" cx="0" cy="-139" r="2.5" fill="#3A2512"/>
+      </g>
+    </g>
+
+    <g class="totem" data-idx="2" transform="translate(1200 680) scale(1.3)">
+      <ellipse class="gate-halo" cx="0" cy="-71.5" rx="100" ry="97.5" fill="url(#gateHalo)"/>
+      <ellipse class="gate-halo-inner" cx="0" cy="-71.5" rx="50" ry="71.5" fill="url(#gateHaloInner)"/>
+
+      <g>
+        <!-- left pillar, trapezoidal (wider base) -->
+        <path d="M -46 0 L -20 0 L -22 -130 L -44 -130 Z" fill="url(#totemStone)"/>
+        <!-- right pillar -->
+        <path d="M 20 0 L 46 0 L 44 -130 L 22 -130 Z" fill="url(#totemStone)"/>
+        <!-- secondary crossbeam -->
+        <rect x="-22" y="-45" width="44" height="10" fill="#6E4525" opacity="0.75"/>
+        <!-- massive lintel -->
+        <path d="M -58 -130 L 58 -130 L 52 -148 L -52 -148 Z" fill="url(#totemStone)"/>
+        <rect x="-52" y="-151" width="104" height="3" fill="#6E4525"/>
+        <rect x="-22" y="-130" width="44" height="4" fill="#2A1408" opacity="0.35"/>
+
+        <g fill="#3A2512">
+          <g class="gate-glyph"><rect x="-30.5" y="-143.5" width="9" height="1.2600000000000002"/><rect x="-30.5" y="-135.58" width="9" height="1.2600000000000002"/><rect x="-30.5" y="-143.5" width="1.2600000000000002" height="9"/><rect x="-22.58" y="-143.5" width="1.2600000000000002" height="9"/><rect x="-27.26" y="-140.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="-17.5" y="-143.5" width="9" height="1.6199999999999999"/><rect x="-17.5" y="-139.72" width="9" height="1.6199999999999999"/><rect x="-17.5" y="-135.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="-4.5" y="-143.5" width="9" height="1.44"/><rect x="-4.5" y="-135.85" width="9" height="1.44"/><rect x="-4.5" y="-143.5" width="1.44" height="9"/><rect x="3.15" y="-143.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="8.5" y="-143.5" width="9" height="1.8"/><rect x="12.1" y="-143.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="21.5" y="-143.5" width="9" height="1.2600000000000002"/><rect x="21.5" y="-135.58" width="9" height="1.2600000000000002"/><rect x="21.5" y="-143.5" width="1.2600000000000002" height="9"/><rect x="29.42" y="-143.5" width="1.2600000000000002" height="9"/><rect x="24.74" y="-140.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="-37.5" y="-20.5" width="9" height="1.6199999999999999"/><rect x="-37.5" y="-16.72" width="9" height="1.6199999999999999"/><rect x="-37.5" y="-12.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="-37.5" y="-42.5" width="9" height="1.44"/><rect x="-37.5" y="-34.85" width="9" height="1.44"/><rect x="-37.5" y="-42.5" width="1.44" height="9"/><rect x="-29.85" y="-42.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="-37.5" y="-64.5" width="9" height="1.8"/><rect x="-33.9" y="-64.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="-37.5" y="-86.5" width="9" height="1.2600000000000002"/><rect x="-37.5" y="-78.58" width="9" height="1.2600000000000002"/><rect x="-37.5" y="-86.5" width="1.2600000000000002" height="9"/><rect x="-29.58" y="-86.5" width="1.2600000000000002" height="9"/><rect x="-34.26" y="-83.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="28.5" y="-20.5" width="9" height="1.6199999999999999"/><rect x="28.5" y="-16.72" width="9" height="1.6199999999999999"/><rect x="28.5" y="-12.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="28.5" y="-42.5" width="9" height="1.44"/><rect x="28.5" y="-34.85" width="9" height="1.44"/><rect x="28.5" y="-42.5" width="1.44" height="9"/><rect x="36.15" y="-42.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="28.5" y="-64.5" width="9" height="1.8"/><rect x="32.1" y="-64.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="28.5" y="-86.5" width="9" height="1.2600000000000002"/><rect x="28.5" y="-78.58" width="9" height="1.2600000000000002"/><rect x="28.5" y="-86.5" width="1.2600000000000002" height="9"/><rect x="36.42" y="-86.5" width="1.2600000000000002" height="9"/><rect x="31.74" y="-83.26" width="2.5200000000000005" height="2.5200000000000005"/></g>
+        </g>
+
+        <!-- glowing core at top -->
+        <circle class="gate-core" cx="0" cy="-139" r="2.5" fill="#3A2512"/>
+      </g>
+    </g>
+
+    <g class="totem" data-idx="3" transform="translate(1580 690) scale(1.1)">
+      <ellipse class="gate-halo" cx="0" cy="-71.5" rx="100" ry="97.5" fill="url(#gateHalo)"/>
+      <ellipse class="gate-halo-inner" cx="0" cy="-71.5" rx="50" ry="71.5" fill="url(#gateHaloInner)"/>
+
+      <g>
+        <!-- left pillar, trapezoidal (wider base) -->
+        <path d="M -46 0 L -20 0 L -22 -130 L -44 -130 Z" fill="url(#totemStone)"/>
+        <!-- right pillar -->
+        <path d="M 20 0 L 46 0 L 44 -130 L 22 -130 Z" fill="url(#totemStone)"/>
+        <!-- secondary crossbeam -->
+        <rect x="-22" y="-45" width="44" height="10" fill="#6E4525" opacity="0.75"/>
+        <!-- massive lintel -->
+        <path d="M -58 -130 L 58 -130 L 52 -148 L -52 -148 Z" fill="url(#totemStone)"/>
+        <rect x="-52" y="-151" width="104" height="3" fill="#6E4525"/>
+        <rect x="-22" y="-130" width="44" height="4" fill="#2A1408" opacity="0.35"/>
+
+        <g fill="#3A2512">
+          <g class="gate-glyph"><rect x="-30.5" y="-143.5" width="9" height="1.44"/><rect x="-30.5" y="-135.85" width="9" height="1.44"/><rect x="-30.5" y="-143.5" width="1.44" height="9"/><rect x="-22.85" y="-143.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="-17.5" y="-143.5" width="9" height="1.8"/><rect x="-13.9" y="-143.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="-4.5" y="-143.5" width="9" height="1.2600000000000002"/><rect x="-4.5" y="-135.58" width="9" height="1.2600000000000002"/><rect x="-4.5" y="-143.5" width="1.2600000000000002" height="9"/><rect x="3.42" y="-143.5" width="1.2600000000000002" height="9"/><rect x="-1.2600000000000002" y="-140.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="8.5" y="-143.5" width="9" height="1.6199999999999999"/><rect x="8.5" y="-139.72" width="9" height="1.6199999999999999"/><rect x="8.5" y="-135.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="21.5" y="-143.5" width="9" height="1.44"/><rect x="21.5" y="-135.85" width="9" height="1.44"/><rect x="21.5" y="-143.5" width="1.44" height="9"/><rect x="29.15" y="-143.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="-37.5" y="-20.5" width="9" height="1.8"/><rect x="-33.9" y="-20.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="-37.5" y="-42.5" width="9" height="1.2600000000000002"/><rect x="-37.5" y="-34.58" width="9" height="1.2600000000000002"/><rect x="-37.5" y="-42.5" width="1.2600000000000002" height="9"/><rect x="-29.58" y="-42.5" width="1.2600000000000002" height="9"/><rect x="-34.26" y="-39.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="-37.5" y="-64.5" width="9" height="1.6199999999999999"/><rect x="-37.5" y="-60.72" width="9" height="1.6199999999999999"/><rect x="-37.5" y="-56.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="-37.5" y="-86.5" width="9" height="1.44"/><rect x="-37.5" y="-78.85" width="9" height="1.44"/><rect x="-37.5" y="-86.5" width="1.44" height="9"/><rect x="-29.85" y="-86.5" width="1.44" height="9"/></g><g class="gate-glyph"><rect x="28.5" y="-20.5" width="9" height="1.8"/><rect x="32.1" y="-20.5" width="1.8" height="9"/></g><g class="gate-glyph"><rect x="28.5" y="-42.5" width="9" height="1.2600000000000002"/><rect x="28.5" y="-34.58" width="9" height="1.2600000000000002"/><rect x="28.5" y="-42.5" width="1.2600000000000002" height="9"/><rect x="36.42" y="-42.5" width="1.2600000000000002" height="9"/><rect x="31.74" y="-39.26" width="2.5200000000000005" height="2.5200000000000005"/></g><g class="gate-glyph"><rect x="28.5" y="-64.5" width="9" height="1.6199999999999999"/><rect x="28.5" y="-60.72" width="9" height="1.6199999999999999"/><rect x="28.5" y="-56.85" width="9" height="1.6199999999999999"/></g><g class="gate-glyph"><rect x="28.5" y="-86.5" width="9" height="1.44"/><rect x="28.5" y="-78.85" width="9" height="1.44"/><rect x="28.5" y="-86.5" width="1.44" height="9"/><rect x="36.15" y="-86.5" width="1.44" height="9"/></g>
+        </g>
+
+        <!-- glowing core at top -->
+        <circle class="gate-core" cx="0" cy="-139" r="2.5" fill="#3A2512"/>
+      </g>
+    </g>
+      </g>
+
+      <g filter="url(#soft)" opacity="0.98">
+        <path d="M 0 860 C 220 720, 460 920, 740 780 C 1020 660, 1240 920, 1520 810 C 1720 750, 1840 880, 1920 860 L 1920 1080 L 0 1080 Z" fill="url(#duneMid)"/>
+      </g>
+      <g>
+        <path d="M 0 960 C 240 840, 520 1010, 820 890 C 1120 780, 1340 990, 1620 910 C 1780 880, 1880 965, 1920 945 L 1920 1080 L 0 1080 Z" fill="url(#duneNear)"/>
+      </g>
+    </svg>
+  </div>
+  <div class="dusk-wash"></div>
+  <div class="haze-bottom"></div>
+  <canvas id="sky-layer" class="sky-layer"></canvas>
+  <canvas class="sand" id="sand" width="556" height="374" style="width: 1112px; height: 748px;" data-cc-id="cc-2"></canvas>
+
+  <svg class="traveler-layer" id="travelerLayer" preserveAspectRatio="none"></svg>
+
+  <div class="prompt" id="prompt">
+    <div class="line">click and drag to drop sand</div>
+    <div class="sub">shape the path · then begin</div>
+  </div>
+
+  <div class="whisper" id="whisper">
+    <div class="big" id="whisperBig">begin again</div>
+    <div class="small" id="whisperSmall">draw the next path</div>
+  </div>
+
+  <div class="chrome-top">
+    <div class="brand">
+      <span class="brand-name">hours</span>
+      <a class="by-line" href="https://github.com/heardlin" target="_blank" rel="noopener">by @heardlin</a>
+    </div>
+    <div class="journey-dist" id="journeyDist">0 miles traveled</div>
+    <div class="meta">
+      <span class="session-label">
+        <span class="session-word">session</span>
+        <span class="session-num" id="sessionNum">one</span>
+      </span>
+      <button class="tweaks-toggle" id="tweaksToggle" aria-label="settings">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+
+  <audio id="bgm" loop preload="auto">
+    <source src="bgm.mp3" type="audio/mpeg">
+  </audio>
+
+  <div class="chrome-bottom">
+    <div class="sand-gauge">
+      <div class="label">sand</div>
+      <div class="bar"><div class="fill" id="gaugeFill" style="width: 100%;"></div></div>
+      <div class="count" id="gaugeCount">full</div>
+    </div>
+
+    <div class="center-action">
+      <button class="begin" id="beginBtn" style="" disabled="">begin</button>
+      <div class="helper" id="helper">keep drawing…</div>
+    </div>
+
+    <div class="phase-block">
+      <div class="phase-label" id="phaseLabel">focus</div>
+      <div class="clock" id="clock">25:00</div>
+      <button class="pause-btn" id="pauseBtn">pause</button>
+    </div>
+  </div>
+
+  <button class="reset-btn reset-corner" id="resetBtn">reset</button>
+
+  <button class="new-journey" id="newJourneyBtn">new journey</button>
+
+  <div class="tweaks" id="tweaks">
+    <h4>journey</h4>
+    <div class="tweak-row">
+      <label>focus</label>
+      <input type="range" id="tkFocus" min="1" max="60" step="1">
+      <span class="val" id="tkFocusV">25m</span>
+    </div>
+    <div class="tweak-row">
+      <label>short break</label>
+      <input type="range" id="tkShort" min="1" max="15" step="1">
+      <span class="val" id="tkShortV">5m</span>
+    </div>
+    <div class="tweak-row">
+      <label>long break</label>
+      <input type="range" id="tkLong" min="5" max="30" step="1">
+      <span class="val" id="tkLongV">20m</span>
+    </div>
+    <div class="tweak-row">
+      <label>bgm</label>
+      <input type="range" id="tkBgm" min="0" max="100" step="1">
+      <span class="val" id="tkBgmV">25</span>
+    </div>
+  </div>
+  </div>
+<script src="app.js"></script>
+</body>
+</html>

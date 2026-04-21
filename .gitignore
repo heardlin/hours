@@ -1,0 +1,16 @@
+# audio — bgm.mp3 is tracked in repo (compressed to ~96MB).
+# Ignore any other audio files the user drops in.
+*.wav
+*.m4a
+*.flac
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# logs / temp
+*.log
+.cache/
