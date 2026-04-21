@@ -1,15 +1,23 @@
 /* ==================================================================
-   Interactive WebGL background — warm heat-shimmer with cursor-driven
-   displacement. A ripple emanates from the cursor position and warps a
-   warm FBM noise field; near the cursor a soft amber glow brightens.
-   Layered via `mix-blend-mode: screen` over the SVG desert scene so it
-   adds highlights rather than replacing the art.
+   Interactive WebGL shader — the cursor is a warm point light that
+   illuminates the sand. It samples the sand canvas as a texture, so
+   as the cursor passes over sand it brightens those pixels clearly;
+   over empty air only a tiny halo hints at the cursor position.
+   Clean radial light + a single geometric ripple, no haze/fog.
    ================================================================== */
 (function () {
   const canvas = document.getElementById("shader-bg");
   if (!canvas) return;
-  const gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: false });
+  // Premultiplied alpha throughout. Safari's compositor divides RGB by A when
+  // the context is premultipliedAlpha:false — with SRC_ALPHA blending over a
+  // cleared buffer the framebuffer ends up with A=alpha² and RGB=color*alpha,
+  // which on un-multiply becomes color/alpha and blows highlights out.
+  const gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true });
   if (!gl) { canvas.style.display = "none"; return; }
+
+  // The sand canvas may not exist at script-load time if app.js runs after
+  // and replaces it; grab a fresh reference each frame just in case.
+  function getSandCanvas() { return document.getElementById("sand"); }
 
   const VS = `
     attribute vec2 a_position;
@@ -24,9 +32,11 @@
     precision mediump float;
     varying vec2 v_uv;
     uniform float u_time;
-    uniform vec2 u_mouse;      // 0..1 in GL space (origin bottom-left)
+    uniform vec2 u_mouse;
     uniform vec2 u_resolution;
+    uniform sampler2D u_sand;
 
+    // 2D value noise — cheap, smooth enough for a slowly drifting mist layer.
     float hash(vec2 p) {
       return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
     }
@@ -40,49 +50,80 @@
         u.y
       );
     }
-    float fbm(vec2 p) {
-      float v = 0.0;
-      float a = 0.5;
-      for (int i = 0; i < 4; i++) {
-        v += a * noise(p);
-        p *= 2.03;  // non-integer so octaves don't align
-        a *= 0.5;
-      }
-      return v;
+    // Two octaves — enough body without feeling like noise grain.
+    float mist(vec2 p) {
+      return noise(p) * 0.65 + noise(p * 2.0) * 0.35;
     }
 
     void main() {
-      float aspect = u_resolution.x / u_resolution.y;
       vec2 uv = v_uv;
+      // Sand canvas was uploaded with UNPACK_FLIP_Y_WEBGL, so uv.y aligns.
+      vec4 sand = texture2D(u_sand, uv);
 
-      // Vector from cursor to current fragment, aspect-corrected so the
-      // ripple is circular on screen (not elliptical on wide viewports).
+      // Aspect-corrected distance so the light is circular on any viewport.
+      float aspect = u_resolution.x / u_resolution.y;
       vec2 toCursor = (uv - u_mouse) * vec2(aspect, 1.0);
       float dist = length(toCursor);
 
-      // Ripple radiating from the cursor — sine modulated by exponential
-      // falloff so influence is local to the cursor, not global.
-      float ripple = sin(dist * 28.0 - u_time * 2.4) * exp(-dist * 3.2);
-      vec2 dir = toCursor / max(dist, 0.0001);
-      vec2 displacement = dir * ripple * 0.018;
+      // Radial falloffs for the cursor light — smaller overall diameter.
+      float core = smoothstep(0.045, 0.0, dist);
+      float ring = smoothstep(0.08, 0.015, dist);
+      float glow = smoothstep(0.16, 0.03, dist);
 
-      // Warm sand-like FBM, drifting slowly in time. The cursor
-      // displacement perturbs the sample coordinates so the pattern
-      // bends around the pointer.
-      float n = fbm((uv + displacement) * 3.2 + vec2(u_time * 0.04, u_time * 0.02));
+      // Geometric ripple that travels outward from the cursor.
+      float phase = dist * 28.0 - u_time * 3.5;
+      float wave = pow(0.5 + 0.5 * sin(phase), 6.0) * exp(-dist * 4.0);
 
-      // Palette: deep amber → warm cream
-      vec3 deep = vec3(0.28, 0.14, 0.04);
-      vec3 warm = vec3(0.98, 0.80, 0.50);
-      vec3 color = mix(deep, warm, smoothstep(0.2, 0.9, n));
+      // Sand mask — where there's sand.
+      float sandMask = smoothstep(0.05, 0.35, sand.a);
 
-      // Soft glow that brightens near the cursor
-      float glow = exp(-dist * 4.5);
-      color = mix(color, vec3(1.0, 0.88, 0.60), glow * 0.55);
+      /* ---- sand illumination (warm point light on sand) ---- */
+      vec3 cream = vec3(1.00, 0.96, 0.82);
+      vec3 amber = vec3(1.00, 0.86, 0.54);
+      vec3 sandColor = mix(amber, cream, core + ring * 0.6);
+      float sandLight = (ring * 0.7 + glow * 0.35 + wave * 0.4) * sandMask;
 
-      // Overall alpha — subtle ambient; stronger near cursor
-      float alpha = 0.18 + glow * 0.35;
-      gl_FragColor = vec4(color, alpha);
+      /* ---- mist layer (warm haze over the sky that the cursor parts) ---- */
+      vec2 mp = uv * vec2(2.2, 1.4) + vec2(u_time * 0.015, u_time * 0.008);
+      float mistField = mist(mp);
+      float verticalBias = smoothstep(0.15, 1.0, uv.y);
+      float mistDensity = (0.55 + 0.45 * mistField) * (0.55 + 0.45 * verticalBias);
+
+      // Soft, gradual clearing — long falloff so there's no hard edge
+      // between "cleared" and "full mist" (which was creating a dark ring).
+      float clearing = smoothstep(0.22, 0.0, dist);
+      mistDensity *= (1.0 - clearing * 0.75);
+
+      vec3 mistColor = vec3(0.99, 0.94, 0.80);  // lighter, airier cream
+      float mistAlpha = mistDensity * (1.0 - sandMask) * 0.48;
+
+      /* ---- dreamy white-gold cursor light (IN AIR) ----
+         Pale warm-white at center blending through light cream into mist —
+         nothing saturated, no gold core that reads as a "dot". The whole
+         effect is a soft luminous glow, like sun through high cloud. */
+      vec3 glowCore = vec3(1.00, 0.98, 0.92);  // nearly white, faint warmth
+      vec3 glowHalo = vec3(1.00, 0.94, 0.82);  // pale light cream
+      float airCore = smoothstep(0.045, 0.0, dist);
+      float airHalo = smoothstep(0.16, 0.01, dist); // wider, fades smoothly into mist
+
+      /* ---- composite ---- */
+      vec3 color;
+      float alpha;
+      if (sandMask > 0.5) {
+        color = sandColor;
+        alpha = sandLight + core * 0.4;
+      } else {
+        // Air: mist → pale halo → soft white-gold core, all in light tones
+        vec3 airColor = mix(mistColor, glowHalo, airHalo);
+        airColor = mix(airColor, glowCore, airCore * 0.8);
+        float airAlpha = mistAlpha + airHalo * 0.35 + airCore * 0.40;
+        color = airColor;
+        alpha = airAlpha;
+      }
+      alpha = clamp(alpha, 0.0, 0.95);
+
+      // Premultiplied output — paired with blendFunc(ONE, ONE_MINUS_SRC_ALPHA).
+      gl_FragColor = vec4(color * alpha, alpha);
     }
   `;
 
@@ -112,7 +153,7 @@
   }
   gl.useProgram(program);
 
-  // Fullscreen quad (two triangles)
+  // Fullscreen quad
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
@@ -126,44 +167,80 @@
   const uTime = gl.getUniformLocation(program, "u_time");
   const uMouse = gl.getUniformLocation(program, "u_mouse");
   const uResolution = gl.getUniformLocation(program, "u_resolution");
+  const uSand = gl.getUniformLocation(program, "u_sand");
+
+  // Sand texture — uploaded from the sand canvas each frame.
+  const sandTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, sandTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  // Upload a 1x1 transparent pixel as initial content so the sampler
+  // never reads garbage before the first real upload.
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+    new Uint8Array([0, 0, 0, 0]));
 
   gl.enable(gl.BLEND);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   gl.clearColor(0, 0, 0, 0);
 
-  // Resize to viewport, capped at device pixel ratio 2 for perf on retina
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = Math.round(window.innerWidth * dpr);
-    const h = Math.round(window.innerHeight * dpr);
+    const cssW = window.innerWidth;
+    const cssH = window.innerHeight;
+    const w = Math.round(cssW * dpr);
+    const h = Math.round(cssH * dpr);
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;
       canvas.height = h;
       gl.viewport(0, 0, w, h);
     }
+    // Canvas is a replaced element — without an explicit style size it
+    // renders at its intrinsic (pixel-buffer) size, which on Retina MacBooks
+    // overflows the viewport and desyncs UV from the cursor.
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
   }
   resize();
   window.addEventListener("resize", resize);
 
-  // Mouse follow with smoothing so the ripple trails the cursor gently.
-  // GL's Y axis points up, so we flip the browser's Y.
   const target = { x: 0.5, y: 0.5 };
   const mouse = { x: 0.5, y: 0.5 };
-  window.addEventListener("pointermove", (e) => {
+  function updateTarget(e) {
     target.x = e.clientX / window.innerWidth;
     target.y = 1.0 - e.clientY / window.innerHeight;
-  });
-  // Start centered when pointer leaves the window so the ripple isn't stuck
+    // Expose pixel-coord cursor so other scripts (app.js clouds) can react.
+    window.__hoursCursor = { x: e.clientX, y: e.clientY };
+  }
+  window.addEventListener("pointermove", updateTarget);
+  window.addEventListener("mousemove", updateTarget);
   window.addEventListener("pointerleave", () => {
-    target.x = 0.5;
-    target.y = 0.5;
+    target.x = 0.5; target.y = 0.5;
+    window.__hoursCursor = null;
   });
 
   const t0 = performance.now();
   function frame() {
-    // Exponential smoothing — cursor doesn't jerk, it eases.
-    mouse.x += (target.x - mouse.x) * 0.08;
-    mouse.y += (target.y - mouse.y) * 0.08;
+    // Higher smoothing factor → tighter cursor follow with just enough
+    // easing to keep the ripple from snapping.
+    mouse.x += (target.x - mouse.x) * 0.45;
+    mouse.y += (target.y - mouse.y) * 0.45;
+
+    // Upload the current sand canvas as the texture. WebGL's UNPACK_FLIP_Y
+    // flag is set just for this upload so canvas top-left maps to
+    // top-left on screen (matching our v_uv orientation).
+    const sandCanvas = getSandCanvas();
+    if (sandCanvas && sandCanvas.width > 0 && sandCanvas.height > 0) {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, sandTex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      try {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sandCanvas);
+      } catch (_) { /* canvas not ready this frame — skip */ }
+      gl.uniform1i(uSand, 0);
+    }
 
     gl.uniform1f(uTime, (performance.now() - t0) * 0.001);
     gl.uniform2f(uMouse, mouse.x, mouse.y);
