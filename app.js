@@ -3,7 +3,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "focusMin": 25,
   "shortMin": 5,
   "longMin": 20,
-  "sandQuota": 30000,
+  "sandCoverage": 10,
   "grainSize": 2,
   "brushRadius": 28
 }/*EDITMODE-END*/;
@@ -16,7 +16,11 @@ const state = {
   focusMin:  TWEAK_DEFAULTS.focusMin,
   shortMin:  TWEAK_DEFAULTS.shortMin,
   longMin:   TWEAK_DEFAULTS.longMin,
-  sandQuota: TWEAK_DEFAULTS.sandQuota,
+  // sandCoverage is a % of viewport cells (slider 5..40); sandQuota is the
+  // derived grain count, recomputed on every resize so big screens demand
+  // proportionally more sand.
+  sandCoverage: TWEAK_DEFAULTS.sandCoverage,
+  sandQuota: 0,
   grainSize: TWEAK_DEFAULTS.grainSize,
   brushRadius: TWEAK_DEFAULTS.brushRadius != null ? TWEAK_DEFAULTS.brushRadius : 16,
 
@@ -62,6 +66,14 @@ const ctx = canvas.getContext("2d", { willReadFrequently: false });
 
 let imageData = null;
 let buf32 = null;
+
+function computeSandQuota() {
+  // Scale the drawable sand budget to the viewport so the dune looks the
+  // same fraction of the screen on a MacBook as on a 5K iMac. Without this
+  // the fixed grain count felt generous on a small display and too sparse
+  // on a big one.
+  return Math.max(1, Math.round(state.cols * state.rows * state.sandCoverage / 100));
+}
 
 // preserveGrid=true syncs sand through a persistent canonical buffer so the
 // dunes stay locked to the floor across window resize / fullscreen toggles
@@ -138,6 +150,7 @@ function resize(preserveGrid = true) {
   state.cols = newCols;
   state.rows = newRows;
   state.grid = newGrid;
+  state.sandQuota = computeSandQuota();
   canvas.width = newCols;
   canvas.height = newRows;
   canvas.style.width = w + "px";
@@ -1048,10 +1061,11 @@ function playChime() {
 /* ------- tweaks wiring ------- */
 const tweaksEl = document.getElementById("tweaks");
 const tkPairs = [
-  ["tkFocus", "tkFocusV", "focusMin", v => v + "m"],
-  ["tkShort", "tkShortV", "shortMin", v => v + "m"],
-  ["tkLong",  "tkLongV",  "longMin",  v => v + "m"],
-  ["tkBgm",   "tkBgmV",   "bgmVolume",  v => v],
+  ["tkFocus", "tkFocusV", "focusMin",     v => v + "m"],
+  ["tkShort", "tkShortV", "shortMin",     v => v + "m"],
+  ["tkLong",  "tkLongV",  "longMin",      v => v + "m"],
+  ["tkSand",  "tkSandV",  "sandCoverage", v => v + "%"],
+  ["tkBgm",   "tkBgmV",   "bgmVolume",    v => v],
 ];
 
 /* hydrate from localStorage so user-adjusted values survive phase transitions
@@ -1102,7 +1116,7 @@ for (const [ctl, val, key, fmt] of tkPairs) {
     document.getElementById(val).textContent = fmt(n);
     syncRangePct(e.target);
     if (key === "grainSize") resize(false);
-    if (key === "sandQuota") updateGauge();
+    if (key === "sandCoverage") { state.sandQuota = computeSandQuota(); updateGauge(); }
     if (key === "focusMin" && state.phase === "idle") setClock(state.focusMin * 60 * 1000, false);
     if (key === "bgmVolume") applyBgmVolume();
     // persist — localStorage for this tab, postMessage for editmode host
